@@ -8,8 +8,8 @@ numpy>=1.26.0,<2.0.0
 
 # PyTorch - Versión compatible con Python 3.12
 # Instalar desde: https://pytorch.org/
-torch>=2.1.0,<2.5.0
-torchvision>=0.16.0,<0.20.0
+torch>=2.5.0  # Usar un rango más abierto o la versión más reciente compatible con 3.13
+torchvision>=0.20.0
 
 # Streamlit & Visualization
 streamlit>=1.28.0
