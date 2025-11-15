@@ -1,0 +1,286 @@
+"""
+Módulo de detección y tracking de ciclistas usando YOLOv11
+"""
+import cv2
+import numpy as np
+from ultralytics import YOLO
+from typing import List, Tuple, Dict
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class CyclistDetector:
+    """
+    Detector de ciclistas usando YOLOv11 con tracking BoT-SORT
+    """
+    
+    # Clases en COCO dataset
+    PERSON_CLASS_ID = 0
+    BICYCLE_CLASS_ID = 1
+    
+    def __init__(self, model_size: str = "n", conf_threshold: float = 0.15, detect_persons: bool = False):
+        """
+        Inicializa el detector
+        
+        Args:
+            model_size: 'n' (nano) o 's' (small)
+            conf_threshold: Umbral de confianza (0-1) - 0.15 recomendado
+            detect_persons: Si True, detecta personas además de bicicletas (puede causar falsos positivos)
+        """
+        self.model_size = model_size
+        self.conf_threshold = conf_threshold
+        self.detect_persons = detect_persons
+        
+        # Configurar clases a detectar
+        if detect_persons:
+            self.detection_classes = [self.PERSON_CLASS_ID, self.BICYCLE_CLASS_ID]
+            logger.info("⚠️  Detectando PERSONAS + BICICLETAS (puede causar falsos positivos)")
+        else:
+            self.detection_classes = [self.BICYCLE_CLASS_ID]
+            logger.info("✅ Detectando solo BICICLETAS (recomendado)")
+        
+        self.model = None
+        self._load_model()
+        
+    def _load_model(self):
+        """Carga el modelo YOLOv11"""
+        try:
+            model_name = f"yolo11{self.model_size}.pt"
+            logger.info(f"Cargando modelo: {model_name}")
+            self.model = YOLO(model_name)
+            logger.info(f"✅ Modelo {model_name} cargado exitosamente")
+        except Exception as e:
+            logger.error(f"❌ Error cargando modelo: {e}")
+            raise
+    
+    def detect_and_track(
+        self, 
+        video_path: str,
+        line_position: float = 0.5,
+        process_every_n_frames: int = 1,
+        progress_callback=None
+    ) -> Tuple[str, Dict]:
+        """
+        Detecta y rastrea ciclistas en video
+        
+        Args:
+            video_path: Ruta al video
+            line_position: Posición de línea de conteo (0-1, fracción de altura)
+            process_every_n_frames: Procesar cada N frames (para velocidad)
+            progress_callback: Función callback(progress_percent, status_message)
+            
+        Returns:
+            Tupla de (ruta_video_procesado, diccionario_metricas)
+        """
+        cap = cv2.VideoCapture(video_path)
+        
+        if not cap.isOpened():
+            raise ValueError(f"No se puede abrir el video: {video_path}")
+        
+        # Propiedades del video
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        # Línea de conteo
+        line_y = int(height * line_position)
+        
+        # Video de salida
+        output_path = video_path.replace('.mp4', '_processed.mp4')
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        
+        # Tracking de objetos que cruzaron la línea
+        tracked_ids_up = set()    # IDs que cruzaron hacia arriba
+        tracked_ids_down = set()  # IDs que cruzaron hacia abajo
+        previous_positions = {}    # {track_id: (x, y)}
+        
+        frame_count = 0
+        processed_frames = 0
+        
+        logger.info(f"Procesando video: {total_frames} frames @ {fps} FPS")
+        logger.info(f"Detectando clases: {self.detection_classes} (1=bicycle" + (", 0=person" if self.detect_persons else "") + ")")
+        logger.info(f"Umbral de confianza: {self.conf_threshold}")
+        
+        # Callback inicial
+        if progress_callback:
+            progress_callback(0, "Iniciando procesamiento...")
+        
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            frame_count += 1
+            
+            # Procesar cada N frames para velocidad
+            if frame_count % process_every_n_frames != 0:
+                out.write(frame)
+                continue
+            
+            processed_frames += 1
+            
+            # Detección y tracking con BoT-SORT
+            results = self.model.track(
+                frame,
+                persist=True,
+                conf=self.conf_threshold,
+                classes=self.detection_classes,  # Solo bicycle por defecto, o person+bicycle si se habilita
+                tracker="botsort.yaml",
+                verbose=False
+            )
+            
+            # Callback de progreso
+            if progress_callback and processed_frames % 10 == 0:
+                progress_percent = int((frame_count / total_frames) * 100)
+                status_msg = f"Procesando frame {frame_count}/{total_frames} | Detectados: {len(tracked_ids_up) + len(tracked_ids_down)}"
+                progress_callback(progress_percent, status_msg)
+            
+            # Dibujar línea de conteo
+            cv2.line(frame, (0, line_y), (width, line_y), (0, 255, 255), 3)
+            cv2.putText(
+                frame, 
+                "LINEA DE CONTEO", 
+                (10, line_y - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 255),
+                2
+            )
+            
+            # Procesar detecciones
+            if results[0].boxes.id is not None:
+                boxes = results[0].boxes.xyxy.cpu().numpy()
+                track_ids = results[0].boxes.id.cpu().numpy().astype(int)
+                confidences = results[0].boxes.conf.cpu().numpy()
+                classes = results[0].boxes.cls.cpu().numpy().astype(int)
+                
+                # Log para debugging (solo primeras detecciones)
+                if processed_frames == 1:
+                    logger.info(f"✅ Primera detección: {len(boxes)} objetos encontrados")
+                    for i, cls in enumerate(classes):
+                        cls_name = "person" if cls == 0 else "bicycle"
+                        logger.info(f"   Objeto {i+1}: {cls_name} (confianza: {confidences[i]:.2f})")
+                
+                for box, track_id, conf, cls in zip(boxes, track_ids, confidences, classes):
+                    x1, y1, x2, y2 = box
+                    cx = int((x1 + x2) / 2)  # Centro X
+                    cy = int((y1 + y2) / 2)  # Centro Y
+                    
+                    # Verificar cruce de línea
+                    if track_id in previous_positions:
+                        prev_cy = previous_positions[track_id][1]
+                        
+                        # Cruce hacia arriba
+                        if prev_cy > line_y and cy <= line_y:
+                            if track_id not in tracked_ids_up:
+                                tracked_ids_up.add(track_id)
+                                logger.info(f"🚴 Ciclista #{track_id} cruzó ARRIBA")
+                        
+                        # Cruce hacia abajo
+                        elif prev_cy < line_y and cy >= line_y:
+                            if track_id not in tracked_ids_down:
+                                tracked_ids_down.add(track_id)
+                                logger.info(f"🚴 Ciclista #{track_id} cruzó ABAJO")
+                    
+                    # Actualizar posición
+                    previous_positions[track_id] = (cx, cy)
+                    
+                    # Dibujar bounding box
+                    color = (0, 255, 0)
+                    cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+                    
+                    # Label
+                    label = f"ID:{track_id} {conf:.2f}"
+                    cv2.putText(
+                        frame,
+                        label,
+                        (int(x1), int(y1) - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6,
+                        color,
+                        2
+                    )
+                    
+                    # Punto central
+                    cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1)
+            
+            # Mostrar contadores
+            total_count = len(tracked_ids_up) + len(tracked_ids_down)
+            info_text = [
+                f"Total: {total_count}",
+                f"Arriba: {len(tracked_ids_up)}",
+                f"Abajo: {len(tracked_ids_down)}",
+                f"Frame: {frame_count}/{total_frames}"
+            ]
+            
+            y_offset = 30
+            for i, text in enumerate(info_text):
+                cv2.putText(
+                    frame,
+                    text,
+                    (10, y_offset + i * 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (255, 255, 255),
+                    2,
+                    cv2.LINE_AA
+                )
+            
+            out.write(frame)
+            
+            # Progress
+            if processed_frames % 30 == 0:
+                progress = (frame_count / total_frames) * 100
+                logger.info(f"Progreso: {progress:.1f}%")
+        
+        cap.release()
+        out.release()
+        
+        # Callback final
+        if progress_callback:
+            progress_callback(100, "Procesamiento completado!")
+        
+        # Calcular métricas
+        duration_seconds = total_frames / fps
+        duration_minutes = duration_seconds / 60
+        
+        total_cyclists = len(tracked_ids_up) + len(tracked_ids_down)
+        cyclists_per_minute = total_cyclists / duration_minutes if duration_minutes > 0 else 0
+        cyclists_per_hour = cyclists_per_minute * 60
+        
+        metrics = {
+            'total_cyclists': total_cyclists,
+            'cyclists_up': len(tracked_ids_up),
+            'cyclists_down': len(tracked_ids_down),
+            'cyclists_per_minute': round(cyclists_per_minute, 2),
+            'cyclists_per_hour': round(cyclists_per_hour, 2),
+            'duration_seconds': round(duration_seconds, 2),
+            'duration_minutes': round(duration_minutes, 2),
+            'fps': fps,
+            'total_frames': total_frames,
+            'processed_frames': processed_frames,
+            'model_used': f"YOLOv11{self.model_size}",
+            'confidence_threshold': self.conf_threshold
+        }
+        
+        logger.info("=" * 50)
+        logger.info("RESULTADOS FINALES:")
+        if total_cyclists == 0:
+            logger.warning("⚠️  NO SE DETECTARON CICLISTAS")
+            logger.info("💡 Sugerencias:")
+            logger.info("   - Reducir umbral de confianza (actual: {:.2f})".format(self.conf_threshold))
+            logger.info("   - Verificar que el video contenga ciclistas visibles")
+            logger.info("   - Usar modelo Small (más preciso) en vez de Nano")
+        else:
+            logger.info(f"✅ Total ciclistas: {total_cyclists}")
+            logger.info(f"↑ Hacia arriba: {len(tracked_ids_up)}")
+            logger.info(f"↓ Hacia abajo: {len(tracked_ids_down)}")
+            logger.info(f"📊 Ciclistas/minuto: {cyclists_per_minute:.2f}")
+            logger.info(f"📊 Ciclistas/hora (proyección): {cyclists_per_hour:.2f}")
+        logger.info("=" * 50)
+        
+        return output_path, metrics
