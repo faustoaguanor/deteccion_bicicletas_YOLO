@@ -92,16 +92,44 @@ def main():
             help="Umbral de confianza para detecciones (0.1-0.9). Valores bajos detectan más objetos."
         )
         
-        # Posición de línea de conteo
-        line_position = st.slider(
-            "Posición línea de conteo:",
-            min_value=0.3,
-            max_value=0.7,
-            value=0.5,
-            step=0.05,
-            help="Posición vertical de la línea (fracción de altura)"
+        # Orientación de línea de conteo
+        line_orientation = st.radio(
+            "Orientación de línea:",
+            options=["horizontal", "vertical", "both"],
+            format_func=lambda x: {
+                "horizontal": "↔️ Horizontal",
+                "vertical": "↕️ Vertical",
+                "both": "✖️ Ambas"
+            }[x],
+            help="Selecciona la orientación de la(s) línea(s) de conteo"
         )
-        
+
+        # Posición de línea horizontal
+        if line_orientation in ["horizontal", "both"]:
+            line_position = st.slider(
+                "Posición línea horizontal:",
+                min_value=0.3,
+                max_value=0.7,
+                value=0.5,
+                step=0.05,
+                help="Posición vertical de la línea horizontal (fracción de altura)"
+            )
+        else:
+            line_position = 0.5
+
+        # Posición de línea vertical
+        if line_orientation in ["vertical", "both"]:
+            line_position_x = st.slider(
+                "Posición línea vertical:",
+                min_value=0.3,
+                max_value=0.7,
+                value=0.5,
+                step=0.05,
+                help="Posición horizontal de la línea vertical (fracción de ancho)"
+            )
+        else:
+            line_position_x = 0.5
+
         # Frame skip para velocidad
         process_every_n = st.selectbox(
             "Procesar cada N frames:",
@@ -194,6 +222,8 @@ def main():
                     model_size,
                     confidence,
                     line_position,
+                    line_position_x,
+                    line_orientation,
                     process_every_n,
                     detect_persons
                 )
@@ -338,15 +368,17 @@ def main():
             """)
 
 
-def process_video(uploaded_file, model_size, confidence, line_position, process_every_n, detect_persons):
+def process_video(uploaded_file, model_size, confidence, line_position, line_position_x, line_orientation, process_every_n, detect_persons):
     """
     Procesa el video subido y muestra resultados
-    
+
     Args:
         uploaded_file: Archivo de video subido
         model_size: Tamaño del modelo ('n' o 's')
         confidence: Umbral de confianza
-        line_position: Posición de línea de conteo
+        line_position: Posición de línea de conteo horizontal
+        line_position_x: Posición de línea de conteo vertical
+        line_orientation: Orientación de línea ('horizontal', 'vertical', 'both')
         process_every_n: Procesar cada N frames
         detect_persons: Si True, detecta personas además de bicicletas
     """
@@ -396,6 +428,8 @@ def process_video(uploaded_file, model_size, confidence, line_position, process_
         output_path, metrics = detector.detect_and_track(
             video_path=video_path,
             line_position=line_position,
+            line_position_x=line_position_x,
+            line_orientation=line_orientation,
             process_every_n_frames=process_every_n,
             progress_callback=update_progress
         )
@@ -462,7 +496,16 @@ def process_video(uploaded_file, model_size, confidence, line_position, process_
         with col2:
             st.markdown("**Video con Detecciones**")
             if os.path.exists(output_path):
-                st.video(output_path)
+                # Verificar tamaño del archivo
+                file_size = os.path.getsize(output_path)
+                if file_size > 0:
+                    # Leer el archivo y mostrarlo
+                    with open(output_path, 'rb') as video_file:
+                        video_bytes = video_file.read()
+                        st.video(video_bytes)
+                    st.caption(f"Tamaño: {file_size / (1024*1024):.2f} MB")
+                else:
+                    st.error("El video procesado está vacío")
             else:
                 st.error("No se pudo generar el video procesado")
         

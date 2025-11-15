@@ -6,6 +6,7 @@ import numpy as np
 from ultralytics import YOLO
 from typing import List, Tuple, Dict
 import logging
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -56,21 +57,25 @@ class CyclistDetector:
             raise
     
     def detect_and_track(
-        self, 
+        self,
         video_path: str,
         line_position: float = 0.5,
+        line_position_x: float = 0.5,
+        line_orientation: str = "horizontal",
         process_every_n_frames: int = 1,
         progress_callback=None
     ) -> Tuple[str, Dict]:
         """
         Detecta y rastrea ciclistas en video
-        
+
         Args:
             video_path: Ruta al video
-            line_position: Posición de línea de conteo (0-1, fracción de altura)
+            line_position: Posición de línea de conteo horizontal (0-1, fracción de altura)
+            line_position_x: Posición de línea de conteo vertical (0-1, fracción de ancho)
+            line_orientation: "horizontal", "vertical" o "both"
             process_every_n_frames: Procesar cada N frames (para velocidad)
             progress_callback: Función callback(progress_percent, status_message)
-            
+
         Returns:
             Tupla de (ruta_video_procesado, diccionario_metricas)
         """
@@ -84,18 +89,30 @@ class CyclistDetector:
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
-        # Línea de conteo
-        line_y = int(height * line_position)
-        
-        # Video de salida
+
+        # Líneas de conteo
+        line_y = int(height * line_position)  # Línea horizontal
+        line_x = int(width * line_position_x)  # Línea vertical
+
+        # Video de salida con codec H.264 (más compatible con navegadores)
         output_path = video_path.replace('.mp4', '_processed.mp4')
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        # Intentar usar H.264, si falla usar mp4v
+        fourcc = cv2.VideoWriter_fourcc(*'avc1')
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-        
-        # Tracking de objetos que cruzaron la línea
+
+        # Si H.264 no funciona, intentar con mp4v
+        if not out.isOpened():
+            logger.warning("⚠️  Codec H.264 (avc1) no disponible, usando mp4v")
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+        # Tracking de objetos que cruzaron las líneas
+        # Para línea horizontal
         tracked_ids_up = set()    # IDs que cruzaron hacia arriba
         tracked_ids_down = set()  # IDs que cruzaron hacia abajo
+        # Para línea vertical
+        tracked_ids_left = set()   # IDs que cruzaron hacia la izquierda
+        tracked_ids_right = set()  # IDs que cruzaron hacia la derecha
         previous_positions = {}    # {track_id: (x, y)}
         
         frame_count = 0
@@ -133,23 +150,50 @@ class CyclistDetector:
                 verbose=False
             )
             
-            # Callback de progreso
-            if progress_callback and processed_frames % 10 == 0:
+            # Callback de progreso mejorado (actualiza más frecuentemente)
+            if progress_callback and processed_frames % 5 == 0:
                 progress_percent = int((frame_count / total_frames) * 100)
-                status_msg = f"Procesando frame {frame_count}/{total_frames} | Detectados: {len(tracked_ids_up) + len(tracked_ids_down)}"
+                elapsed_time = (frame_count / fps) if fps > 0 else 0
+                frames_per_sec = frame_count / max(elapsed_time, 0.1)
+
+                # Calcular total detectados según orientación
+                if line_orientation == "horizontal":
+                    total_detected = len(tracked_ids_up) + len(tracked_ids_down)
+                    status_msg = f"Frame {frame_count}/{total_frames} ({progress_percent}%) | Detectados: {total_detected} | FPS: {frames_per_sec:.1f}"
+                elif line_orientation == "vertical":
+                    total_detected = len(tracked_ids_left) + len(tracked_ids_right)
+                    status_msg = f"Frame {frame_count}/{total_frames} ({progress_percent}%) | Detectados: {total_detected} | FPS: {frames_per_sec:.1f}"
+                else:  # both
+                    total_h = len(tracked_ids_up) + len(tracked_ids_down)
+                    total_v = len(tracked_ids_left) + len(tracked_ids_right)
+                    status_msg = f"Frame {frame_count}/{total_frames} ({progress_percent}%) | H:{total_h} V:{total_v} | FPS: {frames_per_sec:.1f}"
+
                 progress_callback(progress_percent, status_msg)
             
-            # Dibujar línea de conteo
-            cv2.line(frame, (0, line_y), (width, line_y), (0, 255, 255), 3)
-            cv2.putText(
-                frame, 
-                "LINEA DE CONTEO", 
-                (10, line_y - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 255),
-                2
-            )
+            # Dibujar línea(s) de conteo según orientación
+            if line_orientation in ["horizontal", "both"]:
+                cv2.line(frame, (0, line_y), (width, line_y), (0, 255, 255), 3)
+                cv2.putText(
+                    frame,
+                    "LINEA HORIZONTAL",
+                    (10, line_y - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 255, 255),
+                    2
+                )
+
+            if line_orientation in ["vertical", "both"]:
+                cv2.line(frame, (line_x, 0), (line_x, height), (255, 0, 255), 3)
+                cv2.putText(
+                    frame,
+                    "LINEA VERTICAL",
+                    (line_x + 10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 0, 255),
+                    2
+                )
             
             # Procesar detecciones
             if results[0].boxes.id is not None:
@@ -169,23 +213,39 @@ class CyclistDetector:
                     x1, y1, x2, y2 = box
                     cx = int((x1 + x2) / 2)  # Centro X
                     cy = int((y1 + y2) / 2)  # Centro Y
-                    
-                    # Verificar cruce de línea
+
+                    # Verificar cruce de línea(s)
                     if track_id in previous_positions:
-                        prev_cy = previous_positions[track_id][1]
-                        
-                        # Cruce hacia arriba
-                        if prev_cy > line_y and cy <= line_y:
-                            if track_id not in tracked_ids_up:
-                                tracked_ids_up.add(track_id)
-                                logger.info(f"🚴 Ciclista #{track_id} cruzó ARRIBA")
-                        
-                        # Cruce hacia abajo
-                        elif prev_cy < line_y and cy >= line_y:
-                            if track_id not in tracked_ids_down:
-                                tracked_ids_down.add(track_id)
-                                logger.info(f"🚴 Ciclista #{track_id} cruzó ABAJO")
-                    
+                        prev_cx, prev_cy = previous_positions[track_id]
+
+                        # Verificar cruce de línea HORIZONTAL
+                        if line_orientation in ["horizontal", "both"]:
+                            # Cruce hacia arriba
+                            if prev_cy > line_y and cy <= line_y:
+                                if track_id not in tracked_ids_up:
+                                    tracked_ids_up.add(track_id)
+                                    logger.info(f"🚴 Ciclista #{track_id} cruzó ARRIBA (línea horizontal)")
+
+                            # Cruce hacia abajo
+                            elif prev_cy < line_y and cy >= line_y:
+                                if track_id not in tracked_ids_down:
+                                    tracked_ids_down.add(track_id)
+                                    logger.info(f"🚴 Ciclista #{track_id} cruzó ABAJO (línea horizontal)")
+
+                        # Verificar cruce de línea VERTICAL
+                        if line_orientation in ["vertical", "both"]:
+                            # Cruce hacia la izquierda
+                            if prev_cx > line_x and cx <= line_x:
+                                if track_id not in tracked_ids_left:
+                                    tracked_ids_left.add(track_id)
+                                    logger.info(f"🚴 Ciclista #{track_id} cruzó IZQUIERDA (línea vertical)")
+
+                            # Cruce hacia la derecha
+                            elif prev_cx < line_x and cx >= line_x:
+                                if track_id not in tracked_ids_right:
+                                    tracked_ids_right.add(track_id)
+                                    logger.info(f"🚴 Ciclista #{track_id} cruzó DERECHA (línea vertical)")
+
                     # Actualizar posición
                     previous_positions[track_id] = (cx, cy)
                     
@@ -208,15 +268,35 @@ class CyclistDetector:
                     # Punto central
                     cv2.circle(frame, (cx, cy), 5, (0, 0, 255), -1)
             
-            # Mostrar contadores
-            total_count = len(tracked_ids_up) + len(tracked_ids_down)
-            info_text = [
-                f"Total: {total_count}",
-                f"Arriba: {len(tracked_ids_up)}",
-                f"Abajo: {len(tracked_ids_down)}",
-                f"Frame: {frame_count}/{total_frames}"
-            ]
-            
+            # Mostrar contadores según orientación
+            info_text = []
+
+            if line_orientation == "horizontal":
+                total_count = len(tracked_ids_up) + len(tracked_ids_down)
+                info_text = [
+                    f"Total: {total_count}",
+                    f"Arriba: {len(tracked_ids_up)}",
+                    f"Abajo: {len(tracked_ids_down)}",
+                    f"Frame: {frame_count}/{total_frames}"
+                ]
+            elif line_orientation == "vertical":
+                total_count = len(tracked_ids_left) + len(tracked_ids_right)
+                info_text = [
+                    f"Total: {total_count}",
+                    f"Izquierda: {len(tracked_ids_left)}",
+                    f"Derecha: {len(tracked_ids_right)}",
+                    f"Frame: {frame_count}/{total_frames}"
+                ]
+            else:  # both
+                total_h = len(tracked_ids_up) + len(tracked_ids_down)
+                total_v = len(tracked_ids_left) + len(tracked_ids_right)
+                info_text = [
+                    f"Horizontal: {total_h} (↑{len(tracked_ids_up)} ↓{len(tracked_ids_down)})",
+                    f"Vertical: {total_v} (←{len(tracked_ids_left)} →{len(tracked_ids_right)})",
+                    f"Total Unico: {len(set(list(tracked_ids_up) + list(tracked_ids_down) + list(tracked_ids_left) + list(tracked_ids_right)))}",
+                    f"Frame: {frame_count}/{total_frames}"
+                ]
+
             y_offset = 30
             for i, text in enumerate(info_text):
                 cv2.putText(
@@ -224,7 +304,7 @@ class CyclistDetector:
                     text,
                     (10, y_offset + i * 30),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.8,
+                    0.7,
                     (255, 255, 255),
                     2,
                     cv2.LINE_AA
@@ -239,7 +319,19 @@ class CyclistDetector:
         
         cap.release()
         out.release()
-        
+
+        # Asegurar que el archivo se haya escrito correctamente
+        if not os.path.exists(output_path):
+            logger.error(f"❌ El archivo de salida no se creó: {output_path}")
+            raise ValueError("No se pudo crear el video procesado")
+
+        file_size = os.path.getsize(output_path)
+        if file_size == 0:
+            logger.error(f"❌ El archivo de salida está vacío: {output_path}")
+            raise ValueError("El video procesado está vacío")
+
+        logger.info(f"✅ Video procesado guardado: {output_path} ({file_size / (1024*1024):.2f} MB)")
+
         # Callback final
         if progress_callback:
             progress_callback(100, "Procesamiento completado!")
@@ -247,15 +339,25 @@ class CyclistDetector:
         # Calcular métricas
         duration_seconds = total_frames / fps
         duration_minutes = duration_seconds / 60
-        
-        total_cyclists = len(tracked_ids_up) + len(tracked_ids_down)
+
+        # Calcular totales según orientación de línea
+        if line_orientation == "horizontal":
+            total_cyclists = len(tracked_ids_up) + len(tracked_ids_down)
+        elif line_orientation == "vertical":
+            total_cyclists = len(tracked_ids_left) + len(tracked_ids_right)
+        else:  # both - contar IDs únicos
+            all_ids = set(list(tracked_ids_up) + list(tracked_ids_down) + list(tracked_ids_left) + list(tracked_ids_right))
+            total_cyclists = len(all_ids)
+
         cyclists_per_minute = total_cyclists / duration_minutes if duration_minutes > 0 else 0
         cyclists_per_hour = cyclists_per_minute * 60
-        
+
         metrics = {
             'total_cyclists': total_cyclists,
             'cyclists_up': len(tracked_ids_up),
             'cyclists_down': len(tracked_ids_down),
+            'cyclists_left': len(tracked_ids_left),
+            'cyclists_right': len(tracked_ids_right),
             'cyclists_per_minute': round(cyclists_per_minute, 2),
             'cyclists_per_hour': round(cyclists_per_hour, 2),
             'duration_seconds': round(duration_seconds, 2),
@@ -264,7 +366,8 @@ class CyclistDetector:
             'total_frames': total_frames,
             'processed_frames': processed_frames,
             'model_used': f"YOLOv11{self.model_size}",
-            'confidence_threshold': self.conf_threshold
+            'confidence_threshold': self.conf_threshold,
+            'line_orientation': line_orientation
         }
         
         logger.info("=" * 50)
@@ -277,8 +380,12 @@ class CyclistDetector:
             logger.info("   - Usar modelo Small (más preciso) en vez de Nano")
         else:
             logger.info(f"✅ Total ciclistas: {total_cyclists}")
-            logger.info(f"↑ Hacia arriba: {len(tracked_ids_up)}")
-            logger.info(f"↓ Hacia abajo: {len(tracked_ids_down)}")
+            if line_orientation in ["horizontal", "both"]:
+                logger.info(f"↑ Hacia arriba: {len(tracked_ids_up)}")
+                logger.info(f"↓ Hacia abajo: {len(tracked_ids_down)}")
+            if line_orientation in ["vertical", "both"]:
+                logger.info(f"← Hacia izquierda: {len(tracked_ids_left)}")
+                logger.info(f"→ Hacia derecha: {len(tracked_ids_right)}")
             logger.info(f"📊 Ciclistas/minuto: {cyclists_per_minute:.2f}")
             logger.info(f"📊 Ciclistas/hora (proyección): {cyclists_per_hour:.2f}")
         logger.info("=" * 50)
