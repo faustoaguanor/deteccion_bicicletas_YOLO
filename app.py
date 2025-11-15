@@ -175,7 +175,6 @@ def main():
         # Links útiles
         st.markdown("---")
         st.markdown("### 🔗 Links")
-        st.markdown("[📊 Dashboard DMC](https://your-dashboard-link)")
         st.markdown("[💻 GitHub](https://github.com/faustoaguanor)")
     
     # Main content
@@ -291,7 +290,86 @@ def main():
     
     with tab3:
         st.header("📖 Guía de Uso")
-        
+
+        with st.expander("🎯 ¿Cómo funcionan las líneas de detección?", expanded=True):
+            st.markdown("""
+            **Concepto básico:**
+
+            El sistema dibuja una línea virtual en el video y cuenta cada ciclista **solo cuando cruza** esa línea.
+            Cada ciclista se cuenta **una sola vez** gracias al tracking de IDs únicos.
+
+            ---
+
+            **📐 Tipos de líneas:**
+
+            **1. Línea Horizontal** (↔️)
+            ```
+            ┌─────────────────────┐
+            │                     │
+            │        ↓ 🚴         │  ← Ciclista moviéndose hacia abajo
+            │═══════════════════  │  ← LÍNEA HORIZONTAL (amarilla)
+            │        🚴 ↑         │  ← Ciclista moviéndose hacia arriba
+            │                     │
+            └─────────────────────┘
+            ```
+            - **Detecta:** Flujo vertical (arriba ↑ / abajo ↓)
+            - **Uso ideal:** Calles horizontales, intersecciones este-oeste
+            - **Posición:** Ajustable de 30% a 70% de la altura
+
+            **2. Línea Vertical** (↕️)
+            ```
+            ┌──────────║─────────┐
+            │          ║         │
+            │  → 🚴   ║   🚴 ←  │
+            │          ║         │
+            │          ║         │
+            │    LÍNEA VERTICAL  │
+            │    (magenta)       │
+            └──────────║─────────┘
+            ```
+            - **Detecta:** Flujo horizontal (izquierda ← / derecha →)
+            - **Uso ideal:** Calles verticales, intersecciones norte-sur
+            - **Posición:** Ajustable de 30% a 70% del ancho
+
+            **3. Ambas Líneas** (✖️)
+            ```
+            ┌──────────║─────────┐
+            │    ↑ 🚴  ║  🚴 ↓   │
+            │═══════════════════  │ ← Línea horizontal
+            │    → 🚴  ║  🚴 ←   │
+            │          ║         │
+            └──────────║─────────┘
+                       ↑
+                  Línea vertical
+            ```
+            - **Detecta:** Flujo en ambas direcciones simultáneamente
+            - **Uso ideal:** Intersecciones complejas, rotondas
+            - **Conteo:** IDs únicos (un ciclista no se cuenta dos veces)
+
+            ---
+
+            **💡 Consejos para colocar las líneas:**
+
+            1. **Centro del flujo:** Coloca la línea donde pasan la mayoría de ciclistas
+            2. **Evitar bordes:** No coloques en los extremos (30%-70% recomendado)
+            3. **Zona de cruce claro:** Asegúrate que los ciclistas crucen completamente la línea
+            4. **Probar diferentes posiciones:** Si no detecta bien, ajusta la posición en el panel lateral
+
+            ---
+
+            **📊 Ejemplo de conteo:**
+
+            Si un ciclista con ID #5 se mueve así:
+            ```
+            Frame 1:  🚴 (arriba de línea)
+            Frame 2:  🚴 (cruza línea) ← ✅ SE CUENTA AQUÍ
+            Frame 3:  🚴 (abajo de línea)
+            Frame 4:  🚴 (sigue abajo) ← NO se cuenta otra vez
+            ```
+
+            **Resultado:** ID #5 = 1 ciclista contado (dirección: abajo ↓)
+            """)
+
         with st.expander("🎥 ¿Cómo grabar un buen video?"):
             st.markdown("""
             **Recomendaciones para captura:**
@@ -499,10 +577,8 @@ def process_video(uploaded_file, model_size, confidence, line_position, line_pos
                 # Verificar tamaño del archivo
                 file_size = os.path.getsize(output_path)
                 if file_size > 0:
-                    # Leer el archivo y mostrarlo
-                    with open(output_path, 'rb') as video_file:
-                        video_bytes = video_file.read()
-                        st.video(video_bytes)
+                    # Mostrar el video usando la ruta del archivo directamente
+                    st.video(output_path)
                     st.caption(f"Tamaño: {file_size / (1024*1024):.2f} MB")
                 else:
                     st.error("El video procesado está vacío")
