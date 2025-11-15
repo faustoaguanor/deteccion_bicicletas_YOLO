@@ -94,11 +94,41 @@ class CyclistDetector:
         line_y = int(height * line_position)  # Línea horizontal
         line_x = int(width * line_position_x)  # Línea vertical
 
-        # Video de salida con codec MP4V (compatible con navegadores)
+        # Video de salida - intentar con varios codecs para máxima compatibilidad
         output_path = video_path.replace('.mp4', '_processed.mp4')
-        # Usar mp4v que es más compatible con Streamlit y navegadores web
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+        # Intentar codecs en orden de compatibilidad con navegadores
+        # 1. H264 (avc1) - mejor compatibilidad web pero requiere codec instalado
+        # 2. mp4v - fallback compatible
+        codecs_to_try = [
+            ('avc1', 'H264'),
+            ('mp4v', 'MP4V'),
+            ('XVID', 'XVID')
+        ]
+
+        out = None
+        used_codec = None
+        for codec, name in codecs_to_try:
+            try:
+                fourcc = cv2.VideoWriter_fourcc(*codec)
+                test_out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                if test_out.isOpened():
+                    out = test_out
+                    used_codec = name
+                    logger.info(f"✅ Usando codec: {name}")
+                    break
+                else:
+                    test_out.release()
+            except Exception as e:
+                logger.warning(f"⚠️ Codec {name} no disponible: {e}")
+                continue
+
+        if out is None:
+            # Si ningún codec funciona, usar mp4v como último recurso
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            used_codec = 'MP4V (fallback)'
+            logger.warning("⚠️ Usando MP4V como fallback")
 
         # Verificar que se haya creado correctamente
         if not out.isOpened():
@@ -290,8 +320,8 @@ class CyclistDetector:
                 total_h = len(tracked_ids_up) + len(tracked_ids_down)
                 total_v = len(tracked_ids_left) + len(tracked_ids_right)
                 info_text = [
-                    f"Horizontal: {total_h} (↑{len(tracked_ids_up)} ↓{len(tracked_ids_down)})",
-                    f"Vertical: {total_v} (←{len(tracked_ids_left)} →{len(tracked_ids_right)})",
+                    f"Horizontal: {total_h} (Arr:{len(tracked_ids_up)} Aba:{len(tracked_ids_down)})",
+                    f"Vertical: {total_v} (Izq:{len(tracked_ids_left)} Der:{len(tracked_ids_right)})",
                     f"Total Unico: {len(set(list(tracked_ids_up) + list(tracked_ids_down) + list(tracked_ids_left) + list(tracked_ids_right)))}",
                     f"Frame: {frame_count}/{total_frames}"
                 ]

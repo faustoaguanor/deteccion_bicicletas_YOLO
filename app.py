@@ -577,9 +577,15 @@ def process_video(uploaded_file, model_size, confidence, line_position, line_pos
                 # Verificar tamaño del archivo
                 file_size = os.path.getsize(output_path)
                 if file_size > 0:
-                    # Mostrar el video usando la ruta del archivo directamente
-                    st.video(output_path)
-                    st.caption(f"Tamaño: {file_size / (1024*1024):.2f} MB")
+                    try:
+                        # Leer el video como bytes para mejor compatibilidad con Streamlit
+                        with open(output_path, 'rb') as video_file:
+                            video_bytes = video_file.read()
+                            st.video(video_bytes)
+                        st.caption(f"Tamaño: {file_size / (1024*1024):.2f} MB")
+                    except Exception as e:
+                        st.warning(f"⚠️ No se pudo mostrar el video en el navegador: {e}")
+                        st.info("📥 Puedes descargar el video procesado más abajo en 'Exportar Resultados'")
                 else:
                     st.error("El video procesado está vacío")
             else:
