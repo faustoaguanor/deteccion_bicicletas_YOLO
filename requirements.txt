@@ -19,6 +19,7 @@ Pillow>=10.0.0
 
 # Utilities
 scipy>=1.11.0
+lap>=0.5.12
 
 # NOTA: Si tienes problemas con torch, instala manualmente:
 # pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
