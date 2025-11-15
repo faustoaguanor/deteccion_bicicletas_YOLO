@@ -94,17 +94,16 @@ class CyclistDetector:
         line_y = int(height * line_position)  # Línea horizontal
         line_x = int(width * line_position_x)  # Línea vertical
 
-        # Video de salida con codec H.264 (más compatible con navegadores)
+        # Video de salida con codec MP4V (compatible con navegadores)
         output_path = video_path.replace('.mp4', '_processed.mp4')
-        # Intentar usar H.264, si falla usar mp4v
-        fourcc = cv2.VideoWriter_fourcc(*'avc1')
+        # Usar mp4v que es más compatible con Streamlit y navegadores web
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
-        # Si H.264 no funciona, intentar con mp4v
+        # Verificar que se haya creado correctamente
         if not out.isOpened():
-            logger.warning("⚠️  Codec H.264 (avc1) no disponible, usando mp4v")
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            logger.error("❌ No se pudo crear el VideoWriter")
+            raise ValueError("Error al crear el archivo de video de salida")
 
         # Tracking de objetos que cruzaron las líneas
         # Para línea horizontal
