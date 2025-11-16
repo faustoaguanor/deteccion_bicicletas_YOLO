@@ -98,12 +98,14 @@ class CyclistDetector:
         output_path = video_path.replace('.mp4', '_processed.mp4')
 
         # Intentar codecs en orden de compatibilidad con navegadores
-        # 1. H264 (avc1) - mejor compatibilidad web pero requiere codec instalado
-        # 2. mp4v - fallback compatible
+        # 1. mp4v - Más compatible, funciona en la mayoría de sistemas
+        # 2. H264 (x264) - Mejor calidad pero requiere codec instalado
+        # 3. MJPG - Fallback alternativo
         codecs_to_try = [
-            ('avc1', 'H264'),
             ('mp4v', 'MP4V'),
-            ('XVID', 'XVID')
+            ('X264', 'H264'),
+            ('avc1', 'H264-AVC1'),
+            ('MJPG', 'MJPEG')
         ]
 
         out = None
@@ -115,16 +117,16 @@ class CyclistDetector:
                 if test_out.isOpened():
                     out = test_out
                     used_codec = name
-                    logger.info(f"✅ Usando codec: {name}")
+                    logger.info(f"✅ Usando codec: {name} ({codec})")
                     break
                 else:
                     test_out.release()
             except Exception as e:
-                logger.warning(f"⚠️ Codec {name} no disponible: {e}")
+                logger.debug(f"Codec {name} no disponible: {e}")
                 continue
 
         if out is None:
-            # Si ningún codec funciona, usar mp4v como último recurso
+            # Si ningún codec funciona, usar mp4v como último recurso sin verificación
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
             used_codec = 'MP4V (fallback)'
@@ -360,6 +362,18 @@ class CyclistDetector:
             raise ValueError("El video procesado está vacío")
 
         logger.info(f"✅ Video procesado guardado: {output_path} ({file_size / (1024*1024):.2f} MB)")
+
+        # Validar que el video se puede leer correctamente
+        try:
+            test_cap = cv2.VideoCapture(output_path)
+            if not test_cap.isOpened():
+                logger.warning("⚠️ El video generado no se puede abrir, pero el archivo existe")
+            else:
+                test_frames = int(test_cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                logger.info(f"✅ Video validado: {test_frames} frames")
+                test_cap.release()
+        except Exception as e:
+            logger.warning(f"⚠️ No se pudo validar el video: {e}")
 
         # Callback final
         if progress_callback:
