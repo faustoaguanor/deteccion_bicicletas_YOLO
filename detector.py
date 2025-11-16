@@ -7,9 +7,100 @@ from ultralytics import YOLO
 from typing import List, Tuple, Dict
 import logging
 import os
+import subprocess
+import shutil
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def convert_video_to_h264(input_path: str, output_path: str = None) -> str:
+    """
+    Convierte un video a formato H.264 compatible con navegadores web usando FFmpeg.
+
+    Esta función es esencial para Streamlit Cloud, donde el reproductor de video
+    del navegador solo soporta H.264, no mp4v ni otros codecs de OpenCV.
+
+    Args:
+        input_path: Ruta al video de entrada
+        output_path: Ruta al video de salida (si None, se usa input_path_h264.mp4)
+
+    Returns:
+        Ruta al video convertido
+
+    Raises:
+        RuntimeError: Si FFmpeg no está disponible o falla la conversión
+    """
+    # Verificar si ffmpeg está disponible
+    if not shutil.which('ffmpeg'):
+        logger.warning("⚠️ FFmpeg no está disponible. El video podría no reproducirse en Streamlit Cloud.")
+        return input_path
+
+    # Determinar ruta de salida
+    if output_path is None:
+        base_path = input_path.replace('_processed.mp4', '')
+        output_path = f"{base_path}_processed_h264.mp4"
+
+    try:
+        logger.info(f"🔄 Convirtiendo video a H.264 para compatibilidad web...")
+
+        # Comando FFmpeg optimizado para web
+        # -c:v libx264: codec H.264
+        # -preset fast: velocidad de encoding
+        # -crf 23: calidad (18-28, menor = mejor calidad)
+        # -pix_fmt yuv420p: formato de pixel compatible con navegadores
+        # -movflags +faststart: optimiza para streaming web
+        # -c:a copy: copiar audio sin recodificar (si existe)
+        cmd = [
+            'ffmpeg',
+            '-i', input_path,
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-crf', '23',
+            '-pix_fmt', 'yuv420p',
+            '-movflags', '+faststart',
+            '-c:a', 'aac',  # codec de audio compatible
+            '-b:a', '128k',  # bitrate de audio
+            '-y',  # sobrescribir si existe
+            output_path
+        ]
+
+        # Ejecutar FFmpeg
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300  # timeout de 5 minutos
+        )
+
+        if result.returncode != 0:
+            logger.error(f"❌ Error en FFmpeg: {result.stderr}")
+            logger.warning("⚠️ Usando video original sin conversión")
+            return input_path
+
+        # Verificar que el archivo se creó
+        if not os.path.exists(output_path):
+            logger.warning("⚠️ El video convertido no se creó. Usando original.")
+            return input_path
+
+        file_size = os.path.getsize(output_path) / (1024*1024)
+        logger.info(f"✅ Video convertido a H.264: {output_path} ({file_size:.2f} MB)")
+
+        # Eliminar el video temporal original
+        try:
+            os.remove(input_path)
+            logger.debug(f"🗑️ Video temporal eliminado: {input_path}")
+        except Exception as e:
+            logger.debug(f"No se pudo eliminar video temporal: {e}")
+
+        return output_path
+
+    except subprocess.TimeoutExpired:
+        logger.error("❌ FFmpeg timeout - el video es muy largo")
+        return input_path
+    except Exception as e:
+        logger.error(f"❌ Error convirtiendo video: {e}")
+        return input_path
 
 
 class CyclistDetector:
@@ -94,48 +185,26 @@ class CyclistDetector:
         line_y = int(height * line_position)  # Línea horizontal
         line_x = int(width * line_position_x)  # Línea vertical
 
-        # Video de salida - intentar con varios codecs para máxima compatibilidad
+        # Video de salida temporal - usar mp4v (compatible con OpenCV)
+        # Nota: Este video será convertido a H.264 con FFmpeg al final para
+        # compatibilidad con navegadores web y Streamlit Cloud
         output_path = video_path.replace('.mp4', '_processed.mp4')
 
-        # Intentar codecs en orden de compatibilidad con navegadores
-        # 1. mp4v - Más compatible, funciona en la mayoría de sistemas
-        # 2. H264 (x264) - Mejor calidad pero requiere codec instalado
-        # 3. MJPG - Fallback alternativo
-        codecs_to_try = [
-            ('mp4v', 'MP4V'),
-            ('X264', 'H264'),
-            ('avc1', 'H264-AVC1'),
-            ('MJPG', 'MJPEG')
-        ]
-
-        out = None
-        used_codec = None
-        for codec, name in codecs_to_try:
-            try:
-                fourcc = cv2.VideoWriter_fourcc(*codec)
-                test_out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-                if test_out.isOpened():
-                    out = test_out
-                    used_codec = name
-                    logger.info(f"✅ Usando codec: {name} ({codec})")
-                    break
-                else:
-                    test_out.release()
-            except Exception as e:
-                logger.debug(f"Codec {name} no disponible: {e}")
-                continue
-
-        if out is None:
-            # Si ningún codec funciona, usar mp4v como último recurso sin verificación
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-            used_codec = 'MP4V (fallback)'
-            logger.warning("⚠️ Usando MP4V como fallback")
+        # Usar mp4v como codec temporal (será convertido a H.264 después)
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
         # Verificar que se haya creado correctamente
         if not out.isOpened():
-            logger.error("❌ No se pudo crear el VideoWriter")
-            raise ValueError("Error al crear el archivo de video de salida")
+            logger.error("❌ No se pudo crear el VideoWriter con codec mp4v")
+            # Intentar con MJPG como alternativa
+            logger.warning("⚠️ Intentando con codec MJPEG...")
+            fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            if not out.isOpened():
+                raise ValueError("Error al crear el archivo de video de salida")
+
+        logger.info(f"✅ VideoWriter creado con OpenCV (será convertido a H.264)")
 
         # Tracking de objetos que cruzaron las líneas
         # Para línea horizontal
@@ -432,5 +501,9 @@ class CyclistDetector:
             logger.info(f"📊 Ciclistas/minuto: {cyclists_per_minute:.2f}")
             logger.info(f"📊 Ciclistas/hora (proyección): {cyclists_per_hour:.2f}")
         logger.info("=" * 50)
-        
+
+        # Convertir video a H.264 para compatibilidad con Streamlit Cloud
+        logger.info("🎬 Convirtiendo video a formato compatible con navegadores web...")
+        output_path = convert_video_to_h264(output_path)
+
         return output_path, metrics
