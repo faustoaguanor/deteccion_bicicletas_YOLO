@@ -565,12 +565,42 @@ def process_video(uploaded_file, model_size, confidence, line_position, line_pos
         
         # Videos lado a lado
         st.markdown("### 🎬 Videos Comparativos")
+
+        # CSS personalizado para mejorar visualización de videos
+        st.markdown("""
+        <style>
+        /* Mejorar visualización de videos */
+        video {
+            width: 100% !important;
+            height: auto !important;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Asegurar que los videos mantengan su proporción */
+        [data-testid="stVideo"] {
+            width: 100%;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # Obtener propiedades del video original
+        import cv2
+        cap_info = cv2.VideoCapture(video_path)
+        video_width = int(cap_info.get(cv2.CAP_PROP_FRAME_WIDTH))
+        video_height = int(cap_info.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        video_fps = int(cap_info.get(cv2.CAP_PROP_FPS))
+        cap_info.release()
+
+        st.info(f"📐 Dimensiones: {video_width}x{video_height} píxeles | 🎞️ FPS: {video_fps}")
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             st.markdown("**Video Original**")
             st.video(video_path)
-        
+            st.caption(f"Resolución: {video_width}x{video_height}")
+
         with col2:
             st.markdown("**Video con Detecciones**")
             if os.path.exists(output_path):
@@ -578,11 +608,20 @@ def process_video(uploaded_file, model_size, confidence, line_position, line_pos
                 file_size = os.path.getsize(output_path)
                 if file_size > 0:
                     try:
-                        # Leer el video como bytes para mejor compatibilidad con Streamlit
-                        with open(output_path, 'rb') as video_file:
-                            video_bytes = video_file.read()
-                            st.video(video_bytes)
-                        st.caption(f"Tamaño: {file_size / (1024*1024):.2f} MB")
+                        # Obtener propiedades del video procesado
+                        cap_proc = cv2.VideoCapture(output_path)
+                        proc_width = int(cap_proc.get(cv2.CAP_PROP_FRAME_WIDTH))
+                        proc_height = int(cap_proc.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                        proc_fps = int(cap_proc.get(cv2.CAP_PROP_FPS))
+                        cap_proc.release()
+
+                        # Usar la ruta del archivo directamente para mejor compatibilidad
+                        st.video(output_path)
+                        st.caption(f"Resolución: {proc_width}x{proc_height} | Tamaño: {file_size / (1024*1024):.2f} MB")
+
+                        # Advertencia si las dimensiones no coinciden
+                        if proc_width != video_width or proc_height != video_height:
+                            st.warning(f"⚠️ Las dimensiones del video procesado ({proc_width}x{proc_height}) no coinciden con el original ({video_width}x{video_height})")
                     except Exception as e:
                         st.warning(f"⚠️ No se pudo mostrar el video en el navegador: {e}")
                         st.info("📥 Puedes descargar el video procesado más abajo en 'Exportar Resultados'")
