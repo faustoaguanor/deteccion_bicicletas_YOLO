@@ -8,6 +8,8 @@ Puedes probar la aplicación directamente en:
 - **Streamlit Cloud**: https://deteccionbicicletasyolo.streamlit.app/
 - **HuggingFace Spaces**: https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11
 
+**Videos de ejemplo**: Si quieres descargar videos para probar el sistema localmente, puedes conseguirlos en [Google Drive](https://drive.google.com/drive/folders/197-TlVIFMnjTCFFJ6UEXk89saz1YRV8s?usp=drive_link)
+
 ## ¿Qué hace?
 
 El sistema detecta ciclistas en video y cuenta cuántos cruzan una línea virtual. Calcula métricas como ciclistas por minuto y por hora, útil para estudios de movilidad urbana o planificación vial.
