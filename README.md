@@ -7,6 +7,7 @@ Sistema de visión por computadora para contar ciclistas en intersecciones urban
 Puedes probar la aplicación directamente en:
 - **Streamlit Cloud**: https://deteccionbicicletasyolo.streamlit.app/
 - **HuggingFace Spaces**: https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11
+- **HuggingFace con GPU** (Gradio): https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11-gradio
 
 **Videos de ejemplo**: Si quieres descargar videos para probar el sistema localmente, puedes conseguirlos en [Google Drive](https://drive.google.com/drive/folders/197-TlVIFMnjTCFFJ6UEXk89saz1YRV8s?usp=drive_link)
 
