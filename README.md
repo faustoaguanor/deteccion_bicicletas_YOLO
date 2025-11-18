@@ -28,6 +28,7 @@ Aplicación de Computer Vision para conteo automático de ciclistas en intersecc
 3. Seleccionar: Streamlit + Public
 4. Push código a HF repo
 5. Demo: https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11 
+6. Demo con GPU: https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11-gradio 
 
 ## Uso Local
 ```bash
