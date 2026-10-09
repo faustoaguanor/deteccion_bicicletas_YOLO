@@ -1,14 +1,16 @@
 """
 Sistema de Conteo Automático de Ciclistas
 Aplicación Streamlit para detección y conteo con YOLOv11
-Autor: Fausto Guano- Universidad Yachay Tech
+Autor: Fausto Guano - Universidad Yachay Tech
 """
 
+import io
+import logging
 import os
 import tempfile
 import time
-from pathlib import Path
 
+import cv2
 import streamlit as st
 
 from detector import CyclistDetector
@@ -71,13 +73,9 @@ def main():
         )
 
     with col2:
-        st.image(
-            "https://img.shields.io/badge/YOLOv11-Ultralytics-blue",
-            use_container_width=True,
-        )
-        st.image(
-            "https://img.shields.io/badge/Tracking-BoT--SORT-green",
-            use_container_width=True,
+        st.markdown(
+            "![YOLOv11](https://img.shields.io/badge/YOLOv11-Ultralytics-blue) "
+            "![BoT-SORT](https://img.shields.io/badge/Tracking-BoT--SORT-green)"
         )
 
     # Sidebar - Configuración
@@ -299,7 +297,7 @@ def main():
             **📓 Ejemplos**
 
             
-            **Google Dirve**: [Clic aquí para Descargar](https://drive.google.com/drive/folders/197-TlVIFMnjTCFFJ6UEXk89saz1YRV8s?usp=drive_link)
+            **Google Drive**: [Clic aquí para Descargar](https://drive.google.com/drive/folders/197-TlVIFMnjTCFFJ6UEXk89saz1YRV8s?usp=drive_link)
             """
             )
         with col2:
@@ -542,11 +540,11 @@ def process_video(
             progress_bar = st.progress(0)
             status_text = st.empty()
 
-        # Lista para capturar logs
-        import io
-        import sys
-
+        # Capturar los logs del detector (usa logging, no print)
         log_capture = io.StringIO()
+        log_handler = logging.StreamHandler(log_capture)
+        log_handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", "%H:%M:%S"))
+        detector_logger = logging.getLogger("detector")
 
         # Función callback para actualizar progreso
         def update_progress(percent, message):
@@ -556,22 +554,19 @@ def process_video(
         status_text.text("🎬 Procesando video...")
         start_time = time.time()
 
-        # Capturar logs
-        old_stdout = sys.stdout
-        sys.stdout = log_capture
-
         # Detectar y contar
-        output_path, metrics = detector.detect_and_track(
-            video_path=video_path,
-            line_position=line_position,
-            line_position_x=line_position_x,
-            line_orientation=line_orientation,
-            process_every_n_frames=process_every_n,
-            progress_callback=update_progress,
-        )
-
-        # Restaurar stdout
-        sys.stdout = old_stdout
+        detector_logger.addHandler(log_handler)
+        try:
+            output_path, metrics = detector.detect_and_track(
+                video_path=video_path,
+                line_position=line_position,
+                line_position_x=line_position_x,
+                line_orientation=line_orientation,
+                process_every_n_frames=process_every_n,
+                progress_callback=update_progress,
+            )
+        finally:
+            detector_logger.removeHandler(log_handler)
 
         # Mostrar logs capturados
         log_output = log_capture.getvalue()
@@ -650,8 +645,6 @@ def process_video(
         )
 
         # Obtener propiedades del video original
-        import cv2
-
         cap_info = cv2.VideoCapture(video_path)
         video_width = int(cap_info.get(cv2.CAP_PROP_FRAME_WIDTH))
         video_height = int(cap_info.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -752,6 +745,7 @@ def process_video(
                 data=csv,
                 file_name=f"analisis_ciclistas_{int(time.time())}.csv",
                 mime="text/csv",
+                on_click="ignore",
             )
 
         with col2:
@@ -762,6 +756,7 @@ def process_video(
                         data=f,
                         file_name=f"video_procesado_{int(time.time())}.mp4",
                         mime="video/mp4",
+                        on_click="ignore",
                     )
 
     except Exception as e:
