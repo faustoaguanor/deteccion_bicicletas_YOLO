@@ -2,19 +2,19 @@
 Módulo de detección y tracking de ciclistas usando YOLOv11
 """
 import cv2
-import numpy as np
 from ultralytics import YOLO
-from typing import List, Tuple, Dict
+from typing import Dict, Optional, Tuple
 import logging
 import os
 import subprocess
 import shutil
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def convert_video_to_h264(input_path: str, output_path: str = None) -> str:
+def convert_video_to_h264(input_path: str, output_path: Optional[str] = None) -> str:
     """
     Convierte un video a formato H.264 compatible con navegadores web usando FFmpeg.
 
@@ -42,7 +42,7 @@ def convert_video_to_h264(input_path: str, output_path: str = None) -> str:
         output_path = f"{base_path}_processed_h264.mp4"
 
     try:
-        logger.info(f"🔄 Convirtiendo video a H.264 para compatibilidad web...")
+        logger.info("🔄 Convirtiendo video a H.264 para compatibilidad web...")
 
         # Comando FFmpeg optimizado para web
         # -c:v libx264: codec H.264
@@ -176,10 +176,17 @@ class CyclistDetector:
             raise ValueError(f"No se puede abrir el video: {video_path}")
         
         # Propiedades del video
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if not fps or fps != fps or fps <= 0:  # 0 o NaN: metadatos ausentes
+            logger.warning("⚠️ El video no reporta FPS; se asumen 30")
+            fps = 30.0
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if total_frames <= 0:
+            cap.release()
+            raise ValueError("El video no contiene frames legibles")
+        process_every_n_frames = max(1, int(process_every_n_frames))
 
         # Líneas de conteo
         line_y = int(height * line_position)  # Línea horizontal
@@ -204,7 +211,7 @@ class CyclistDetector:
             if not out.isOpened():
                 raise ValueError("Error al crear el archivo de video de salida")
 
-        logger.info(f"✅ VideoWriter creado con OpenCV (será convertido a H.264)")
+        logger.info("✅ VideoWriter creado con OpenCV (será convertido a H.264)")
 
         # Tracking de objetos que cruzaron las líneas
         # Para línea horizontal
@@ -217,6 +224,7 @@ class CyclistDetector:
         
         frame_count = 0
         processed_frames = 0
+        start_time = time.time()
         
         logger.info(f"Procesando video: {total_frames} frames @ {fps} FPS")
         logger.info(f"Detectando clases: {self.detection_classes} (1=bicycle" + (", 0=person" if self.detect_persons else "") + ")")
@@ -253,8 +261,7 @@ class CyclistDetector:
             # Callback de progreso mejorado (actualiza más frecuentemente)
             if progress_callback and processed_frames % 5 == 0:
                 progress_percent = int((frame_count / total_frames) * 100)
-                elapsed_time = (frame_count / fps) if fps > 0 else 0
-                frames_per_sec = frame_count / max(elapsed_time, 0.1)
+                frames_per_sec = frame_count / max(time.time() - start_time, 0.1)
 
                 # Calcular total detectados según orientación
                 if line_orientation == "horizontal":
@@ -474,7 +481,7 @@ class CyclistDetector:
             'cyclists_per_hour': round(cyclists_per_hour, 2),
             'duration_seconds': round(duration_seconds, 2),
             'duration_minutes': round(duration_minutes, 2),
-            'fps': fps,
+            'fps': round(fps, 2),
             'total_frames': total_frames,
             'processed_frames': processed_frames,
             'model_used': f"YOLOv11{self.model_size}",

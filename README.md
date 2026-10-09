@@ -1,91 +1,111 @@
-# Detección y Conteo de Ciclistas con YOLOv11
+# 🚴 Detección y Conteo de Ciclistas con YOLOv11
 
-Sistema de visión por computadora que detecta y cuenta ciclistas en videos de intersecciones urbanas. Útil para estudios de movilidad y planificación vial.
+Aplicación web de visión por computadora que **detecta, rastrea y cuenta ciclistas** en videos de intersecciones urbanas. Calcula el flujo (ciclistas por minuto y por hora proyectado), la direccionalidad y genera recomendaciones orientadas a la planificación de movilidad.
 
-## Demos y ejemplos
+![Python](https://img.shields.io/badge/Python-3.10%2B-blue)
+![YOLOv11](https://img.shields.io/badge/YOLOv11-Ultralytics-blue)
+![Tracking](https://img.shields.io/badge/Tracking-BoT--SORT-green)
+![Streamlit](https://img.shields.io/badge/UI-Streamlit-red)
+![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-Prueba la aplicación sin instalar nada:
+## Demos
 
-- **Streamlit Cloud**: https://deteccionbicicletasyolo.streamlit.app/
-- **HuggingFace Spaces**: https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11
-- **HuggingFace con GPU** (Gradio): https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11-gradio
+| Plataforma | Enlace |
+|------------|--------|
+| Streamlit Cloud | https://deteccionbicicletasyolo.streamlit.app/ |
+| Hugging Face Spaces | https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11 |
+| Hugging Face Spaces (GPU, Gradio) | https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11-gradio |
 
-Descarga videos de prueba: [Google Drive](https://drive.google.com/drive/folders/197-TlVIFMnjTCFFJ6UEXk89saz1YRV8s?usp=drive_link)
+Videos de prueba: [Google Drive](https://drive.google.com/drive/folders/197-TlVIFMnjTCFFJ6UEXk89saz1YRV8s?usp=drive_link)
 
-## Cómo funciona
+## Características
 
-El sistema procesa videos y cuenta cuántos ciclistas cruzan una línea virtual configurable. Genera métricas como ciclistas por minuto y por hora, además de gráficas del flujo de tráfico.
+- Detección de bicicletas con **YOLOv11** (clase `bicycle` de COCO) y seguimiento multi-objeto con **BoT-SORT**.
+- Línea de conteo **horizontal**, **vertical** o **ambas**, con posición ajustable (30 %–70 % del frame).
+- Cada ciclista se cuenta **una sola vez** gracias a su ID de seguimiento, con la dirección de cruce (↑ ↓ ← →).
+- Métricas: total, ciclistas/minuto, proyección por hora, duración y FPS.
+- Gráficas (Plotly), recomendaciones de planificación y exportación de resultados (CSV y video anotado).
+- Opción experimental para detectar también personas (puede generar falsos positivos con peatones).
 
-**Tecnologías:**
-- YOLOv11 para detectar ciclistas en cada frame
-- BoT-SORT para seguir objetos entre frames
-- Línea de conteo virtual ajustable
-- Visualización en tiempo real
+### Modelos
 
-**Modelos disponibles:**
+| Modelo | Tamaño aprox. | Cuándo usarlo |
+|--------|---------------|---------------|
+| YOLOv11n (nano) | ~5 MB | Videos largos o equipos con poca capacidad |
+| YOLOv11s (small) | ~19 MB | Cuando se necesita mayor precisión |
 
-| Modelo | Tamaño | Cuando usarlo |
-|--------|--------|---------------|
-| YOLOv11n | 3MB | Videos largos o computadoras lentas |
-| YOLOv11s | 10MB | Cuando necesitas mayor precisión |
+Los pesos se descargan automáticamente en la primera ejecución.
 
 ## Instalación local
+
+Requisitos: Python 3.10 o superior y [FFmpeg](https://ffmpeg.org/) instalado (se usa para convertir el video procesado a H.264 y que se reproduzca en el navegador; si no está disponible, la app funciona pero el video podría no reproducirse).
 
 ```bash
 git clone https://github.com/faustoaguanor/deteccion_bicicletas_YOLO.git
 cd deteccion_bicicletas_YOLO
+
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+
 streamlit run app.py
 ```
 
-Abre tu navegador en `http://localhost:8501`
+Abre `http://localhost:8501` en el navegador.
 
-## Deployment
+> Para instalar PyTorch solo-CPU (más liviano):
+> `pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu`
 
-### Streamlit Cloud
+## Uso
 
-1. Sube tu repo a GitHub
-2. Ve a https://streamlit.io/cloud y conecta tu cuenta
-3. Selecciona el repositorio, rama y archivo `app.py`
-4. Da click en Deploy
+1. Sube un video (MP4, AVI o MOV; idealmente de 30 s a 2 min, cámara fija y vista elevada).
+2. Elige el modelo, el umbral de confianza y la orientación y posición de la línea en el panel lateral.
+3. Pulsa **Iniciar Análisis**.
+4. Revisa las métricas, el video anotado, las gráficas y las recomendaciones; descarga el CSV o el video.
 
-### HuggingFace Spaces
+| Parámetro | Valor por defecto | Notas |
+|-----------|-------------------|-------|
+| Confianza mínima | 0.15 | Valores bajos detectan más (y pueden añadir falsos positivos) |
+| Orientación de línea | Horizontal | Horizontal, vertical o ambas |
+| Posición de línea | 0.5 | Fracción de la altura / ancho del frame |
+| Procesar cada N frames | 1 | Mayor valor = más rápido, menos preciso |
 
-1. Crea una cuenta en https://huggingface.co
-2. Crea un nuevo Space (tipo Streamlit)
-3. Clona y sube el código:
+## Despliegue
 
-```bash
-git clone https://huggingface.co/spaces/tu-usuario/nombre-space
-cd nombre-space
-# copia los archivos del proyecto aquí
-git add .
-git commit -m "Initial commit"
-git push
-```
+**Streamlit Cloud:** sube el repositorio a GitHub, conéctalo en [streamlit.io/cloud](https://streamlit.io/cloud) y selecciona `app.py`. El archivo `packages.txt` instala las dependencias del sistema (FFmpeg, libGL).
 
-El deploy se hace automáticamente.
+**Hugging Face Spaces:** crea un Space de tipo Streamlit, copia los archivos del proyecto al repositorio del Space y haz `git push`; el despliegue es automático.
 
-## Archivos del proyecto
+## Estructura del proyecto
 
 ```
-├── app.py               # Aplicación Streamlit
-├── requirements.txt     # Librerías necesarias
-├── yolo11n.pt          # Modelo nano (rápido)
-├── yolo11s.pt          # Modelo small (preciso)
-└── README.md
+├── app.py               # Interfaz Streamlit
+├── detector.py          # Detección, tracking, conteo y conversión de video a H.264
+├── utils.py             # Métricas, gráficas y recomendaciones
+├── requirements.txt     # Dependencias de Python
+├── packages.txt         # Dependencias del sistema (Streamlit Cloud)
+├── .streamlit/config.toml
+└── LICENSE
 ```
 
 ## Detalles técnicos
 
-- Los videos se convierten a H.264 para funcionar en cualquier navegador
-- BoT-SORT combina detección con re-identificación de objetos
-- Solo se cuentan detecciones con confianza mayor al 25%
-- La línea de conteo se puede mover arrastrándola en la interfaz
+- Un ciclista se cuenta cuando el centro de su caja delimitadora **cruza** la línea entre dos frames consecutivos procesados.
+- En modo "ambas líneas", el total usa IDs únicos para no contar dos veces al mismo ciclista.
+- El video anotado se escribe con OpenCV (`mp4v`) y luego se convierte a H.264 con FFmpeg para su reproducción web.
+- La proyección por hora extrapola el flujo medido en el video; úsala como referencia, no como aforo definitivo.
 
----
+## Limitaciones
 
-**Desarrollado por:** Fausto Guano
-**Institución:** Universidad Yachay Tech
+- La precisión depende de la calidad del video, la iluminación, la distancia a la cámara y las oclusiones.
+- Los cambios de ID del tracker pueden provocar conteos duplicados o perdidos.
+- Se recomienda validar los resultados contra un conteo manual antes de usarlos en decisiones de planificación.
 
-Proyecto de análisis de movilidad ciclística urbana
+## Licencia
+
+Distribuido bajo licencia [MIT](LICENSE).
+
+## Autor
+
+**Fausto Guano** — Universidad Yachay Tech
+Proyecto de análisis de movilidad ciclística urbana.

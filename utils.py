@@ -2,7 +2,6 @@
 Funciones auxiliares para visualización y análisis
 """
 import plotly.graph_objects as go
-import plotly.express as px
 import pandas as pd
 from typing import Dict
 import streamlit as st
@@ -324,7 +323,7 @@ def generate_recommendations(metrics: Dict) -> str:
     recommendations = "### 💡 Recomendaciones para Planificación Urbana\n\n"
 
     if cyclists_per_hour < 50:
-        recommendations += f"""
+        recommendations += """
 **Flujo Bajo** ({cyclists_per_hour:.0f} ciclistas/hora proyectados)
 
 - ⚠️ El flujo de ciclistas es bajo para justificar infraestructura dedicada
@@ -333,7 +332,7 @@ def generate_recommendations(metrics: Dict) -> str:
 - 🎯 Evaluar campañas de promoción de movilidad en bicicleta
 """
     elif cyclists_per_hour < 150:
-        recommendations += f"""
+        recommendations += """
 **Flujo Medio** ({cyclists_per_hour:.0f} ciclistas/hora proyectados)
 
 - ✅ Flujo suficiente para considerar ciclovía compartida
@@ -342,7 +341,7 @@ def generate_recommendations(metrics: Dict) -> str:
 - 📈 Monitorear crecimiento en próximos meses
 """
     else:
-        recommendations += f"""
+        recommendations += """
 **Flujo Alto** ({cyclists_per_hour:.0f} ciclistas/hora proyectados)
 
 - 🎯 **Prioridad Alta**: Implementar ciclovía segregada
@@ -352,7 +351,7 @@ def generate_recommendations(metrics: Dict) -> str:
 """
 
     # Análisis de dirección según orientación
-    recommendations += f"\n**Análisis de Direccionalidad:**\n\n"
+    recommendations += "\n**Análisis de Direccionalidad:**\n\n"
 
     if line_orientation == "horizontal":
         up_ratio = metrics['cyclists_up'] / total if total > 0 else 0
@@ -361,10 +360,10 @@ def generate_recommendations(metrics: Dict) -> str:
         if abs(up_ratio - down_ratio) > 0.3:
             dominant_dir = "Arriba ↑" if up_ratio > down_ratio else "Abajo ↓"
             recommendations += f"- 📊 Flujo predominante hacia **{dominant_dir}** ({max(up_ratio, down_ratio)*100:.0f}%)\n"
-            recommendations += f"- 🎯 Considerar optimización unidireccional en horas pico\n"
+            recommendations += "- 🎯 Considerar optimización unidireccional en horas pico\n"
         else:
-            recommendations += f"- ✅ Flujo bidireccional equilibrado (Arriba/Abajo)\n"
-            recommendations += f"- 🎯 Diseño debe considerar tráfico en ambas direcciones\n"
+            recommendations += "- ✅ Flujo bidireccional equilibrado (Arriba/Abajo)\n"
+            recommendations += "- 🎯 Diseño debe considerar tráfico en ambas direcciones\n"
 
     elif line_orientation == "vertical":
         left_ratio = metrics['cyclists_left'] / total if total > 0 else 0
@@ -373,10 +372,10 @@ def generate_recommendations(metrics: Dict) -> str:
         if abs(left_ratio - right_ratio) > 0.3:
             dominant_dir = "Izquierda ←" if left_ratio > right_ratio else "Derecha →"
             recommendations += f"- 📊 Flujo predominante hacia **{dominant_dir}** ({max(left_ratio, right_ratio)*100:.0f}%)\n"
-            recommendations += f"- 🎯 Considerar optimización unidireccional en horas pico\n"
+            recommendations += "- 🎯 Considerar optimización unidireccional en horas pico\n"
         else:
-            recommendations += f"- ✅ Flujo bidireccional equilibrado (Izquierda/Derecha)\n"
-            recommendations += f"- 🎯 Diseño debe considerar tráfico en ambas direcciones\n"
+            recommendations += "- ✅ Flujo bidireccional equilibrado (Izquierda/Derecha)\n"
+            recommendations += "- 🎯 Diseño debe considerar tráfico en ambas direcciones\n"
 
     else:  # both
         # Análisis para línea horizontal
@@ -386,25 +385,22 @@ def generate_recommendations(metrics: Dict) -> str:
         left_ratio = metrics['cyclists_left'] / total if total > 0 else 0
         right_ratio = metrics['cyclists_right'] / total if total > 0 else 0
 
-        total_h = metrics['cyclists_up'] + metrics['cyclists_down']
-        total_v = metrics['cyclists_left'] + metrics['cyclists_right']
-
-        recommendations += f"**Línea Horizontal:**\n"
+        recommendations += "**Línea Horizontal:**\n"
         if abs(up_ratio - down_ratio) > 0.3:
             dominant_dir_h = "Arriba ↑" if up_ratio > down_ratio else "Abajo ↓"
             recommendations += f"- 📊 Flujo predominante hacia **{dominant_dir_h}** ({max(up_ratio, down_ratio)*100:.0f}%)\n"
         else:
             recommendations += f"- ✅ Flujo equilibrado (↑ {metrics['cyclists_up']} / ↓ {metrics['cyclists_down']})\n"
 
-        recommendations += f"\n**Línea Vertical:**\n"
+        recommendations += "\n**Línea Vertical:**\n"
         if abs(left_ratio - right_ratio) > 0.3:
             dominant_dir_v = "Izquierda ←" if left_ratio > right_ratio else "Derecha →"
             recommendations += f"- 📊 Flujo predominante hacia **{dominant_dir_v}** ({max(left_ratio, right_ratio)*100:.0f}%)\n"
         else:
             recommendations += f"- ✅ Flujo equilibrado (← {metrics['cyclists_left']} / → {metrics['cyclists_right']})\n"
 
-        recommendations += f"\n- 🎯 Intersección compleja: diseño debe considerar todas las direcciones\n"
-        recommendations += f"- 🚦 Priorizar señalización y semáforos especiales para ciclistas\n"
+        recommendations += "\n- 🎯 Intersección compleja: diseño debe considerar todas las direcciones\n"
+        recommendations += "- 🚦 Priorizar señalización y semáforos especiales para ciclistas\n"
 
     return recommendations
 
