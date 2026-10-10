@@ -1,7 +1,7 @@
 """
 Sistema de Conteo Automático de Ciclistas
 Aplicación Streamlit para detección y conteo con YOLOv11
-Autor: Fausto Guano - Universidad Yachay Tech
+Autor: faustoaguanor (https://github.com/faustoaguanor)
 """
 
 import io
@@ -171,19 +171,15 @@ def main():
             st.markdown(
                 """
             **Desarrollado por:**  
-            Fausto Guano
+            [@faustoaguanor](https://github.com/faustoaguanor)
             
-            **Universidad:**  
-            Yachay Tech
-            
-            **Módulo:**  
-            Fundamentos de IA
-            
-            **Tecnologías:**
-            - YOLOv11 (Ultralytics)
-            - BoT-SORT Tracking
-            - OpenCV
-            - Streamlit
+            **Tecnologías y créditos:**
+            - [Ultralytics YOLO11](https://github.com/ultralytics/ultralytics) (AGPL-3.0)
+            - [BoT-SORT](https://github.com/NirAharon/BoT-SORT) (tracking)
+            - [OpenCV](https://opencv.org/)
+            - [Streamlit](https://streamlit.io/)
+            - [Plotly](https://plotly.com/python/)
+            - [FFmpeg](https://ffmpeg.org/)
             """
             )
 

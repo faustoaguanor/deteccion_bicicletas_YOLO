@@ -95,11 +95,28 @@ Abre `http://localhost:8501` en el navegador.
 - Los cambios de ID del tracker pueden provocar conteos duplicados o perdidos.
 - Se recomienda validar los resultados contra un conteo manual antes de usarlos en decisiones de planificación.
 
+## Créditos y agradecimientos
+
+Este proyecto se apoya en software abierto:
+
+| Proyecto | Uso | Licencia |
+|----------|-----|----------|
+| [Ultralytics YOLO11](https://github.com/ultralytics/ultralytics) | Detección de objetos y tracking | AGPL-3.0 |
+| [BoT-SORT](https://github.com/NirAharon/BoT-SORT) ([paper](https://arxiv.org/abs/2206.14651)) | Algoritmo de seguimiento multi-objeto | MIT |
+| [COCO Dataset](https://cocodataset.org/) | Datos con los que se preentrenan los modelos (clases `bicycle` y `person`) | CC BY 4.0 |
+| [PyTorch](https://pytorch.org/) | Inferencia de los modelos | BSD-3 |
+| [OpenCV](https://opencv.org/) | Lectura y escritura de video, dibujo de anotaciones | Apache-2.0 |
+| [FFmpeg](https://ffmpeg.org/) | Conversión a H.264 | LGPL/GPL |
+| [Streamlit](https://streamlit.io/) | Interfaz web | Apache-2.0 |
+| [Plotly](https://plotly.com/python/) | Gráficas interactivas | MIT |
+| [pandas](https://pandas.pydata.org/) / [NumPy](https://numpy.org/) / [SciPy](https://scipy.org/) | Procesamiento de datos | BSD-3 |
+
+> Los modelos YOLO11 de Ultralytics se distribuyen bajo AGPL-3.0. Si despliegas esta aplicación como servicio, revisa las condiciones de esa licencia (o la [licencia empresarial de Ultralytics](https://www.ultralytics.com/license)).
+
 ## Licencia
 
-Distribuido bajo licencia [MIT](LICENSE).
+El código de este repositorio se distribuye bajo licencia [MIT](LICENSE). Las dependencias conservan sus propias licencias.
 
 ## Autor
 
-**Fausto Guano** — Universidad Yachay Tech
-Proyecto de análisis de movilidad ciclística urbana.
+[@faustoaguanor](https://github.com/faustoaguanor)
