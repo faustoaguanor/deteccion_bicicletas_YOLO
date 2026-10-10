@@ -14,7 +14,6 @@ import cv2
 import streamlit as st
 
 from detector import CyclistDetector
-from video_source import MAX_DURATION_SECONDS, MAX_FILESIZE_MB, download_video, is_valid_url
 from utils import (
     create_comparison_chart,
     create_direction_chart,
@@ -206,44 +205,12 @@ def main():
 
         # Upload de video
         uploaded_file = st.file_uploader(
-            "Sube un video (MP4, AVI, MOV)",
+            "Selecciona un video (MP4, AVI, MOV)",
             type=["mp4", "avi", "mov"],
             help="Recomendado: videos cortos (30 seg - 2 min) para mejor rendimiento",
         )
 
-        st.caption("— o —")
-        video_url = st.text_input(
-            "Pega un enlace de video (YouTube, Shorts, etc.)",
-            placeholder="https://www.youtube.com/shorts/eKJVww2YbEU",
-            help=f"Se descarga en máx. 720p. Límite: {MAX_DURATION_SECONDS // 60} min y "
-            f"{MAX_FILESIZE_MB} MB. Si subes un archivo, se usa el archivo.",
-        ).strip()
-        url_invalid = bool(video_url) and not is_valid_url(video_url)
-        if url_invalid:
-            st.error("❌ El enlace no es válido. Debe iniciar con http:// o https://")
-
-        if uploaded_file is None and video_url and not url_invalid:
-            st.info(f"🔗 Se descargará el video desde: {video_url}")
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                url_button = st.button(
-                    "🚀 Descargar y Analizar",
-                    type="primary",
-                    use_container_width=True,
-                )
-            if url_button:
-                process_video(
-                    None,
-                    model_size,
-                    confidence,
-                    line_position,
-                    line_position_x,
-                    line_orientation,
-                    process_every_n,
-                    detect_persons,
-                    video_url=video_url,
-                )
-        elif uploaded_file is not None:
+        if uploaded_file is not None:
             # Mostrar información del archivo
             file_size_mb = uploaded_file.size / (1024 * 1024)
             st.info(f"📁 Archivo: {uploaded_file.name} | Tamaño: {file_size_mb:.2f} MB")
@@ -277,7 +244,7 @@ def main():
             st.info(
                 """
             👆 **Instrucciones:**
-            1. Sube un video de una intersección o calle, o pega un enlace (YouTube, Shorts)
+            1. Carga un video de una intersección o calle
             2. Ajusta la configuración en el panel lateral
             3. Presiona "Iniciar Análisis"
             4. Revisa las métricas y visualizaciones
@@ -327,10 +294,10 @@ def main():
             )
             st.markdown(
                 """
-            **📓 Ejemplo**
+            **📓 Video de ejemplo**
 
-            Prueba pegando este enlace en la pestaña de análisis:
-            `https://www.youtube.com/shorts/eKJVww2YbEU`
+            [Ver en YouTube](https://www.youtube.com/shorts/eKJVww2YbEU)
+            (descárgalo y súbelo, o usa uno propio)
             """
             )
         with col2:
@@ -532,13 +499,12 @@ def process_video(
     line_orientation,
     process_every_n,
     detect_persons,
-    video_url=None,
 ):
     """
     Procesa el video subido y muestra resultados
 
     Args:
-        uploaded_file: Archivo de video subido (None si se usa video_url)
+        uploaded_file: Archivo de video subido
         model_size: Tamaño del modelo ('n' o 's')
         confidence: Umbral de confianza
         line_position: Posición de línea de conteo horizontal
@@ -546,25 +512,12 @@ def process_video(
         line_orientation: Orientación de línea ('horizontal', 'vertical', 'both')
         process_every_n: Procesar cada N frames
         detect_persons: Si True, detecta personas además de bicicletas
-        video_url: Enlace del video a descargar (alternativa al archivo subido)
     """
 
-    # Obtener el video: descargarlo del enlace o guardar el archivo subido
-    if video_url:
-        try:
-            with st.spinner("⬇️ Descargando video..."):
-                video_path = download_video(video_url)
-        except (ValueError, RuntimeError) as e:
-            st.error(f"❌ {e}")
-            st.info(
-                "💡 Si el enlace falla (algunos servidores bloquean descargas de "
-                "YouTube), descarga el video y súbelo como archivo."
-            )
-            return
-    else:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
-            tmp_file.write(uploaded_file.read())
-            video_path = tmp_file.name
+    # Guardar archivo temporal
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_file:
+        tmp_file.write(uploaded_file.read())
+        video_path = tmp_file.name
 
     try:
         # Inicializar detector
