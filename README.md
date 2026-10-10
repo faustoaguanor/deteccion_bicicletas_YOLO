@@ -8,15 +8,11 @@ Aplicación web de visión por computadora que **detecta, rastrea y cuenta cicli
 ![Streamlit](https://img.shields.io/badge/UI-Streamlit-red)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-## Demos
+## Demo
 
-| Plataforma | Enlace |
-|------------|--------|
-| Streamlit Cloud | https://deteccionbicicletasyolo.streamlit.app/ |
-| Hugging Face Spaces | https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11 |
-| Hugging Face Spaces (GPU, Gradio) | https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11-gradio |
+🔗 **https://deteccionbicicletasyolo.streamlit.app/**
 
-Videos de prueba: [Google Drive](https://drive.google.com/drive/folders/197-TlVIFMnjTCFFJ6UEXk89saz1YRV8s?usp=drive_link)
+Video de ejemplo para probar: [YouTube Shorts](https://www.youtube.com/shorts/eKJVww2YbEU). Descárgalo y súbelo en la app, o usa un video propio.
 
 ## Características
 
@@ -58,7 +54,7 @@ Abre `http://localhost:8501` en el navegador.
 
 ## Uso
 
-1. Sube un video (MP4, AVI o MOV; idealmente de 30 s a 2 min, cámara fija y vista elevada).
+1. Sube un video (MP4, AVI o MOV), por ejemplo el [video de ejemplo](https://www.youtube.com/shorts/eKJVww2YbEU) o uno propio. Idealmente de 30 s a 2 min, con cámara fija y vista elevada.
 2. Elige el modelo, el umbral de confianza y la orientación y posición de la línea en el panel lateral.
 3. Pulsa **Iniciar Análisis**.
 4. Revisa las métricas, el video anotado, las gráficas y las recomendaciones; descarga el CSV o el video.
@@ -73,8 +69,6 @@ Abre `http://localhost:8501` en el navegador.
 ## Despliegue
 
 **Streamlit Cloud:** sube el repositorio a GitHub, conéctalo en [streamlit.io/cloud](https://streamlit.io/cloud) y selecciona `app.py`. El archivo `packages.txt` instala las dependencias del sistema (FFmpeg, libGL).
-
-**Hugging Face Spaces:** crea un Space de tipo Streamlit, copia los archivos del proyecto al repositorio del Space y haz `git push`; el despliegue es automático.
 
 ## Estructura del proyecto
 

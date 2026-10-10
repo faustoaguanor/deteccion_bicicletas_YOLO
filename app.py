@@ -294,10 +294,10 @@ def main():
             )
             st.markdown(
                 """
-            **📓 Ejemplos**
+            **📓 Video de ejemplo**
 
-            
-            **Google Drive**: [Clic aquí para Descargar](https://drive.google.com/drive/folders/197-TlVIFMnjTCFFJ6UEXk89saz1YRV8s?usp=drive_link)
+            [Ver en YouTube](https://www.youtube.com/shorts/eKJVww2YbEU)
+            (descárgalo y súbelo, o usa uno propio)
             """
             )
         with col2:
