@@ -8,21 +8,19 @@ Aplicación web de visión por computadora que **detecta, rastrea y cuenta cicli
 ![Streamlit](https://img.shields.io/badge/UI-Streamlit-red)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-## Demos
+## Demo
 
-| Plataforma | Enlace |
-|------------|--------|
-| Streamlit Cloud | https://deteccionbicicletasyolo.streamlit.app/ |
-| Hugging Face Spaces | https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11 |
-| Hugging Face Spaces (GPU, Gradio) | https://huggingface.co/spaces/FaustoAlejo/contador-ciclistas-yolov11-gradio |
+🔗 **https://deteccionbicicletasyolo.streamlit.app/**
 
-Videos de prueba: [Google Drive](https://drive.google.com/drive/folders/197-TlVIFMnjTCFFJ6UEXk89saz1YRV8s?usp=drive_link)
+Para probarla sin instalar nada, pega este enlace de ejemplo en el campo de enlace de video de la app:
+`https://www.youtube.com/shorts/eKJVww2YbEU`
 
 ## Características
 
 - Detección de bicicletas con **YOLOv11** (clase `bicycle` de COCO) y seguimiento multi-objeto con **BoT-SORT**.
 - Línea de conteo **horizontal**, **vertical** o **ambas**, con posición ajustable (30 %–70 % del frame).
 - Cada ciclista se cuenta **una sola vez** gracias a su ID de seguimiento, con la dirección de cruce (↑ ↓ ← →).
+- **Entrada de video flexible**: sube un archivo (MP4, AVI, MOV) o pega un enlace de YouTube / Shorts (se descarga en máx. 720p, hasta 10 min y 100 MB).
 - Métricas: total, ciclistas/minuto, proyección por hora, duración y FPS.
 - Gráficas (Plotly), recomendaciones de planificación y exportación de resultados (CSV y video anotado).
 - Opción experimental para detectar también personas (puede generar falsos positivos con peatones).
@@ -58,9 +56,9 @@ Abre `http://localhost:8501` en el navegador.
 
 ## Uso
 
-1. Sube un video (MP4, AVI o MOV; idealmente de 30 s a 2 min, cámara fija y vista elevada).
+1. Sube un video (MP4, AVI o MOV) **o pega un enlace** como `https://www.youtube.com/shorts/eKJVww2YbEU`. Idealmente de 30 s a 2 min, con cámara fija y vista elevada.
 2. Elige el modelo, el umbral de confianza y la orientación y posición de la línea en el panel lateral.
-3. Pulsa **Iniciar Análisis**.
+3. Pulsa **Iniciar Análisis** (o **Descargar y Analizar** si usas un enlace).
 4. Revisa las métricas, el video anotado, las gráficas y las recomendaciones; descarga el CSV o el video.
 
 | Parámetro | Valor por defecto | Notas |
@@ -74,14 +72,13 @@ Abre `http://localhost:8501` en el navegador.
 
 **Streamlit Cloud:** sube el repositorio a GitHub, conéctalo en [streamlit.io/cloud](https://streamlit.io/cloud) y selecciona `app.py`. El archivo `packages.txt` instala las dependencias del sistema (FFmpeg, libGL).
 
-**Hugging Face Spaces:** crea un Space de tipo Streamlit, copia los archivos del proyecto al repositorio del Space y haz `git push`; el despliegue es automático.
-
 ## Estructura del proyecto
 
 ```
 ├── app.py               # Interfaz Streamlit
 ├── detector.py          # Detección, tracking, conteo y conversión de video a H.264
 ├── utils.py             # Métricas, gráficas y recomendaciones
+├── video_source.py      # Descarga de videos desde enlaces (yt-dlp)
 ├── requirements.txt     # Dependencias de Python
 ├── packages.txt         # Dependencias del sistema (Streamlit Cloud)
 ├── .streamlit/config.toml
@@ -97,6 +94,8 @@ Abre `http://localhost:8501` en el navegador.
 
 ## Limitaciones
 
+- La descarga por enlace depende de yt-dlp y de que el servidor permita acceder al sitio de origen; si falla (p. ej. YouTube bloquea la IP del servidor), descarga el video y súbelo como archivo.
+- Descarga solo contenido que tengas derecho a usar y respeta los términos del sitio de origen.
 - La precisión depende de la calidad del video, la iluminación, la distancia a la cámara y las oclusiones.
 - Los cambios de ID del tracker pueden provocar conteos duplicados o perdidos.
 - Se recomienda validar los resultados contra un conteo manual antes de usarlos en decisiones de planificación.
